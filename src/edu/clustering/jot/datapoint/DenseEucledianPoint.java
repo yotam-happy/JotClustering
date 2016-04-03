@@ -21,6 +21,10 @@ public class DenseEucledianPoint implements Point{
 		coords = new double[d];
 	}
 	
+	public int dim() {
+		return coords.length;
+	}
+	
 	@Override
 	public double getWeight() {
 		return weight;

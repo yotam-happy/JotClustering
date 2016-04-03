@@ -3,7 +3,9 @@ package edu.clustering.jot.kmeans;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Cluster<T> {
+import edu.clustering.jot.interfaces.Point;
+
+public class Cluster<T extends Point> {
 	
 	public List<T> points;
 	public T centroid;
@@ -46,5 +48,13 @@ public class Cluster<T> {
 	
 	public synchronized void clear() {
 		points.clear();
+	}
+	
+	public double cost(){
+		double c = 0;
+		for(T p : points){
+			c += p.distance(centroid);
+		}
+		return c;
 	}
 }

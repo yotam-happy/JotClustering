@@ -32,7 +32,7 @@ import edu.clustering.jot.util.RandomUtils;
 
 public class CoreSetConstructor<T extends Point> implements ClusteringAlgorithm<T>{
 
-	Random rnd = new Random(System.currentTimeMillis());
+	Random rnd = RandomUtils.getRandom();
 	
 	// this is the final size of the returned coreset. Note in (1) it is denoted by m and
 	// k has a different meaning
@@ -40,36 +40,44 @@ public class CoreSetConstructor<T extends Point> implements ClusteringAlgorithm<
 
 	CoreSetTreeNode<T> root;
 	
-	protected double calcWeight(List<T> s, T r){
-		double w = 0;
-		for (T p : s){
-			w += r.distance(p) * p.getWeight();
-		}
-		return w;
+	public void reset(){
+		root = null;
+		k = 0;
 	}
-	
+
 	@Override
-	public void doClustering(int k, List<T> points) {
+	public void doClustering(int k, int minClustersToMaintain, List<T> points) {
 		this.k = k;
 		
 		// first representative is selected at random
-		int r = rnd.nextInt(points.size());
+		T rep = chooseRepresentative(points, null);
 		root = new CoreSetTreeNode<>(
 				new ArrayList<T>(points), 
-				points.get(r),
-				calcWeight(points, points.get(r)),
+				rep,
 				null);
 		
 		// obtain k-1 new leaves.
 		for(int i = 1; i < k; i++){
+			// if the weight is 0 (up to numerical errors) then there is no point
+			// to split again
+			if (root.weight < 0.0000001){
+				break;
+			}
+
 			// choose a leaf
 			CoreSetTreeNode<T> leaf;
+			int j = 0;
 			do{
 				leaf = chooseLeaf(root);
-			}while(leaf.getPointSet().size() <= 1); // should not happen except in some extremely rare cases
-													// but if it happened we just run chooseLeaf again
+				j++;
+			}while(leaf.getPointSet().size() < 2 && j < 10);
+			
+			if(j >= 10){
+				// we cannot find a leaf to split
+				return;
+			}
 			// choose a new representative
-			T newRepresentative = chooseRepresentative(leaf);
+			T newRepresentative = chooseRepresentative(leaf.getPointSet(), leaf.getRepresentative());
 			
 			// split leaf
 			splitLeaf(leaf,newRepresentative);
@@ -81,36 +89,33 @@ public class CoreSetConstructor<T extends Point> implements ClusteringAlgorithm<
 		T repRight = newRep;
 		List<T> left = new ArrayList<>();
 		List<T> right = new ArrayList<>();
-		double weightLeft = 0;
-		double weightRight = 0;
 		for(T p : leaf.getPointSet()){
 			double dLeft = p.distance(repLeft);
 			double dRight = p.distance(repRight);
 			if(dLeft < dRight){
 				left.add(p);
-				weightLeft += dLeft * p.getWeight();
 			} else {
 				right.add(p);
-				weightRight += dRight * p.getWeight();
 			}
 		}
-		CoreSetTreeNode<T> l = new CoreSetTreeNode<>(left, repLeft, weightLeft, leaf);
-		CoreSetTreeNode<T> r = new CoreSetTreeNode<>(right, repRight, weightRight, leaf);
+		CoreSetTreeNode<T> l = new CoreSetTreeNode<>(left, repLeft, leaf);
+		CoreSetTreeNode<T> r = new CoreSetTreeNode<>(right, repRight, leaf);
 		leaf.split(l, r);
 	}
 	
-	protected T chooseRepresentative(CoreSetTreeNode<T> leaf){
-		double[] probs = new double[leaf.getPointSet().size()];
+	protected T chooseRepresentative(List<T> points, T rep){
+		double[] probs = new double[points.size()];
 		double t = 0;
 		for(int i = 0; i < probs.length; i++){
-			probs[i] = leaf.getRepresentative().distance(leaf.getPointSet().get(i));
+			probs[i] = (rep != null ? rep.distance(points.get(i)) : 1.0) * points.get(i).getWeight();
 			t += probs[i];
 		}
-		for(int i = 0; i < leaf.getPointSet().size(); i++){
-			probs[i] /= t;
+		for(int i = 0; i < points.size(); i++){
+			
+			probs[i] = t > 0 ? probs[i] / t : 1.0 / points.size();
 		}
 		int j = RandomUtils.getItemByProb(probs, rnd.nextDouble());
-		return leaf.getPointSet().get(j);
+		return points.get(j);
 	}
 	
 	double probs[] = new double[2];
@@ -119,8 +124,9 @@ public class CoreSetConstructor<T extends Point> implements ClusteringAlgorithm<
 			return node;
 		}
 		double t = node.getLeftChild().getWeight() + node.getRightChild().getWeight();
-		probs[0] = node.getLeftChild().getWeight() / t;
-		probs[1] = node.getRightChild().getWeight() / t;
+		
+		probs[0] = t > 0 ? node.getLeftChild().getWeight() / t : 0.5;
+		probs[1] = t > 0 ? node.getRightChild().getWeight() / t : 0.5;
 		int s = RandomUtils.getItemByProb(probs, rnd.nextDouble());
 		return chooseLeaf(s == 0 ? node.getLeftChild() : node.getRightChild());
 	}
@@ -133,6 +139,7 @@ public class CoreSetConstructor<T extends Point> implements ClusteringAlgorithm<
 				Cluster<T> c = new Cluster<>(-1);
 				c.points = e.getPointSet();
 				c.centroid = e.getRepresentative();
+				c.centroid.setWeight(e.getPointSet().stream().mapToDouble((p)->p.getWeight()).sum());
 				l.add(c);
 			}
 		});
@@ -140,5 +147,13 @@ public class CoreSetConstructor<T extends Point> implements ClusteringAlgorithm<
 			l.get(i).id = i;
 		}
 		return l;
+	}
+
+	String name;
+	public void setName(String name){
+		this.name = name;
+	}
+	public String getName(){
+		return name;
 	}
 }

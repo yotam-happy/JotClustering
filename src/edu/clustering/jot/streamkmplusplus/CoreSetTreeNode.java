@@ -9,33 +9,48 @@ public class CoreSetTreeNode<T extends Point> {
 	List<T> pointSet;
 	T representative;
 	double weight;
+	int nPoints;
 	CoreSetTreeNode<T> childL, childR;
 	CoreSetTreeNode<T> parent;
 	
 	public CoreSetTreeNode(
 			List<T> pointSet, 
 			T representative,
-			double weight,
 			CoreSetTreeNode<T> parent){
 		this.pointSet = pointSet;
 		this.representative = representative;
 		this.parent = parent;
 		this.childL = null;
 		this.childR = null;
-		this.weight = weight;
+		this.weight = calcWeight(pointSet, representative);
+		this.nPoints = pointSet.size();
+	}
+
+	protected double calcWeightRecursive(){
+		if(pointSet == null){
+			return childL.calcWeightRecursive() + childR.calcWeightRecursive();
+		}
+		return calcWeight(pointSet, representative);
+	}
+	protected double calcWeight(List<T> s, T r){
+		double w = 0;
+		for (T p : s){
+			w += r.distance(p) * p.getWeight();
+		}
+		return w;
 	}
 	
 	public void split(CoreSetTreeNode<T> l, CoreSetTreeNode<T> r){
 		this.childL = l;
 		this.childR = r;
 		this.pointSet = null;
-		updateWeight((l.weight + r.weight) - weight);
+;		updateWeight((l.weight + r.weight) - weight);
 	}
 	
 	public void updateWeight(double delta){
 		weight += delta;
 		if(parent != null){
-			updateWeight(delta);
+			parent.updateWeight(delta);
 		}
 	}
 	
@@ -71,7 +86,11 @@ public class CoreSetTreeNode<T extends Point> {
 	
 	public void forEach(Consumer<CoreSetTreeNode<T>> consumer){
 		consumer.accept(this);
-		childL.forEach(consumer);
-		childR.forEach(consumer);
+		if (childL != null){
+			childL.forEach(consumer);
+		}
+		if (childR != null){
+			childR.forEach(consumer);
+		}
 	}
 }

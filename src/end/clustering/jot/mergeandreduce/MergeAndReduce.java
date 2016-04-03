@@ -17,24 +17,33 @@ import edu.clustering.jot.kmeans.Cluster;
  */
 public class MergeAndReduce<T extends Point> implements StreamingClusteringAlgorithm<T>{
 	int k;
+	int interk;
 	int l;
 	ClusteringAlgorithm<T> intermediateClusterer;
 	ClusteringAlgorithm<T> finalClusterer;
 	List<List<T>> levels = new ArrayList<List<T>>();
 	
+	public void reset(){
+		intermediateClusterer.reset();
+		finalClusterer.reset();
+		levels = new ArrayList<>();
+	}
+	
 	public MergeAndReduce(
 			int k, 
 			int l,
 			ClusteringAlgorithm<T> clusterer){
-		this(k,l,clusterer,clusterer);
+		this(k,k,l,clusterer,clusterer);
 	}
 
 	public MergeAndReduce(
 			int k, 
+			int interk,
 			int l,
 			ClusteringAlgorithm<T> intermediateClusterer,
 			ClusteringAlgorithm<T> finalClusterer){
 		this.k = k;
+		this.interk = k;
 		this.l = l;
 		this.intermediateClusterer = intermediateClusterer;
 		this.finalClusterer = finalClusterer;
@@ -47,18 +56,46 @@ public class MergeAndReduce<T extends Point> implements StreamingClusteringAlgor
 	}
 	
 	protected void processPoints(List<T> points, int level){
+		if(level >= levels.size()){
+			levels.add(new ArrayList<>());
+		}
 		levels.get(level).addAll(points);
 		if (levels.get(level).size() >= k * l){
-			intermediateClusterer.doClustering(k, levels.get(level));
+			intermediateClusterer.doClustering(interk, interk, levels.get(level));
 			levels.get(level).clear();
+			
 			processPoints(intermediateClusterer.getWeigthedCentroids(), level + 1);
 		}
 	}
 	
 	public List<Cluster<T>> getEstimatedClusters(){
-		List<T> allPoints = new ArrayList<>();
-		levels.forEach((l)->allPoints.addAll(l));
-		finalClusterer.doClustering(k, allPoints);
+		// clear all levels
+		if (levels.size() > 1){
+			for(int i = 0; i < levels.size() - 1; i++){
+				if (levels.get(i).size() / l >= 2){
+					intermediateClusterer.doClustering(levels.get(i).size() / l, 
+							levels.get(i).size() / l, 
+							levels.get(i));
+					levels.get(i).clear();
+					levels.get(i + 1).addAll(intermediateClusterer.getWeigthedCentroids());
+				}
+			}
+		}
+		finalClusterer.doClustering(k, k, levels.get(levels.size() - 1));
+		
 		return finalClusterer.getClusters();
+	}
+	
+	public String someStats(){
+		//int mem = levels.stream().mapToInt((l)->l.size()).sum();
+		return "levels: " + levels.size() + " memory: " + levels.get(levels.size() - 1).size() + " (samples)";
+	}
+
+	String name;
+	public void setName(String name){
+		this.name = name;
+	}
+	public String getName(){
+		return name;
 	}
 }

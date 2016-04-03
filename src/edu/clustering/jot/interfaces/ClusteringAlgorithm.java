@@ -7,7 +7,8 @@ import edu.clustering.jot.kmeans.Cluster;
 
 public interface ClusteringAlgorithm<T extends Point> {
 	
-	void doClustering(int k, List<T> points);
+	void reset();
+	void doClustering(int k, int minClustersToMaintain, List<T> points);
 	
 	List<Cluster<T>> getClusters();
 	
@@ -23,4 +24,7 @@ public interface ClusteringAlgorithm<T extends Point> {
 			return c;
 		}).collect(Collectors.toList());
 	}
+	
+	void setName(String name);
+	String getName();
 }

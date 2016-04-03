@@ -21,12 +21,17 @@ public class IteratedClustering<T extends Point> implements ClusteringAlgorithm<
 		this.k = k;
 	}
 	
+	public void reset(){
+		algo.reset();
+		clusters = null;
+	}
+
 	@Override
-	public void doClustering(int k, List<T> points) {
+	public void doClustering(int k, int minClustersToMaintain, List<T> points) {
 		double bestCost = Double.MAX_VALUE;
 		
 		for(int i = 0; i < k; i++){
-			algo.doClustering(k, points);
+			algo.doClustering(k, minClustersToMaintain, points);
 			List<Cluster<T>> a = algo.getClusters();
 			double c = ClusteringUtils.getCost(a);
 			if(c < bestCost){
@@ -41,4 +46,11 @@ public class IteratedClustering<T extends Point> implements ClusteringAlgorithm<
 		return clusters;
 	}
 	
+	String name;
+	public void setName(String name){
+		this.name = name;
+	}
+	public String getName(){
+		return name;
+	}
 }

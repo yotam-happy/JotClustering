@@ -6,12 +6,13 @@ import java.util.List;
 import java.util.Random;
 
 import edu.clustering.jot.datapoint.DenseEucledianPoint;
+import edu.clustering.jot.util.RandomUtils;
 
 public class Norm25DatasetGenerator {
 	public static final double hypercubeSize = 500;
 	
 	public static List<DenseEucledianPoint> getPoints(int k, int d, int n, double variance){
-		Random rnd = new Random(System.currentTimeMillis());
+		Random rnd = RandomUtils.getRandom();
 		
 		// get centers
 		List<DenseEucledianPoint> centers = new ArrayList<>(); 

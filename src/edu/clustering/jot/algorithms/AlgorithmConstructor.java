@@ -12,6 +12,7 @@ public class AlgorithmConstructor {
     		int maxIterations,
     		double minDelta){
 		KMeans<T> algo = new KMeans<>(maxIterations, minDelta);
+		algo.setName("k-means");
 		return algo;
 	}
 	
@@ -20,6 +21,8 @@ public class AlgorithmConstructor {
     		double minDelta){
 		KMeans<T> algo = new KMeans<>(maxIterations, minDelta);
 		algo.setClusterInitializer(new KMeansPlusPlusInitializer<>(1));
+		algo.setClusterInitializerForDeadClusters(new KMeansPlusPlusInitializer<>(1));
+		algo.setName("k-means++");
 		return algo;
 	}
 
@@ -31,11 +34,14 @@ public class AlgorithmConstructor {
 		// t = 3 * log2(k)
 		algo.setClusterInitializer(new KMeansPlusPlusInitializer<>(
 				(int)(3.0 * Math.log(k) / Math.log(2))));
+		algo.setClusterInitializerForDeadClusters(new KMeansPlusPlusInitializer<>(1));
+		algo.setName("k-means#");
 		return algo;
 	}
 
 	public static <T extends Point> ClusteringAlgorithm<T> getCoreSetConstructor(){
 		CoreSetConstructor<T> algo = new CoreSetConstructor<>();
+		algo.setName("streamKM++_coreset_constructor");
 		return algo;
 	}
 }

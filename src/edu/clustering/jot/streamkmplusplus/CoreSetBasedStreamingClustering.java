@@ -8,6 +8,7 @@ import edu.clustering.jot.interfaces.ClusteringAlgorithm;
 import edu.clustering.jot.interfaces.Point;
 import edu.clustering.jot.interfaces.StreamingClusteringAlgorithm;
 import edu.clustering.jot.kmeans.Cluster;
+import edu.clustering.jot.kmeans.KMeans;
 
 public class CoreSetBasedStreamingClustering<T extends Point> implements StreamingClusteringAlgorithm<T>{
 	// number of final clusters
@@ -19,6 +20,11 @@ public class CoreSetBasedStreamingClustering<T extends Point> implements Streami
 	StreamingClusteringAlgorithm<T> coreSetConstructor;
 	ClusteringAlgorithm<T> clusterer;
 	
+	public void reset(){
+		coreSetConstructor.reset();;
+		clusterer.reset();
+	}
+
 	public CoreSetBasedStreamingClustering(
 			int k, 
 			int m,
@@ -44,8 +50,32 @@ public class CoreSetBasedStreamingClustering<T extends Point> implements Streami
 		coreSet = arr.stream().map((x)->x.getCentroid()).collect(Collectors.toList());
 		
 		// cluster the coreset
-		clusterer.doClustering(k, coreSet);
-		return clusterer.getClusters();
+		double bestCost = Double.MAX_VALUE;
+		List<Cluster<T>> bestClusters = null;
+		for(int i = 0; i < 5; i++){
+			clusterer.doClustering(k, k, coreSet);
+			List<Cluster<T>> l = clusterer.getClusters();
+			double cost = coreSet.stream()
+					.mapToDouble((p)-> KMeans.findClosestCluster(p, l).y)
+					.average().orElse(0);
+			if (cost < bestCost){
+				bestCost = cost;
+				bestClusters = l;
+			}
+			
+		}
+		return bestClusters;
 	}
 
+	public String someStats(){
+		return coreSetConstructor.someStats();
+	}
+
+	String name;
+	public void setName(String name){
+		this.name = name;
+	}
+	public String getName(){
+		return name;
+	}
 }

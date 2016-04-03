@@ -39,7 +39,7 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 		double[] probs = new double[points.size()];
 
 		List<Cluster<T>> clusters = new ArrayList<Cluster<T>>();
-    	Random rnd = new Random(System.currentTimeMillis());
+    	Random rnd = RandomUtils.getRandom();
 
 		// select first centroids at random
     	for(int i = 0; i < t; i++){
@@ -51,7 +51,10 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
     	//Initialize rest of clusters with kmeans++ probabilities
     	for (int i = 1; i < k; i++) {
     		probs = setProbs(probs, clusters, points);
-
+    		if (Double.isNaN(probs[0])){
+    			// This means all points are the same, no need for more clusters
+    			break;
+    		}
     		for(int j = 0; j < t; j++){
 	    		T centroid = points.get(RandomUtils.getItemByProb(probs, rnd.nextDouble()));
 	    		Cluster<T> cluster = new Cluster<>(i * t + j);
@@ -70,9 +73,14 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 		double total = 0;
 		
 		for(int i = 0; i < probs.length; i++){
-			Tuple<Integer,Double> t = KMeans.findClosestCluster(points.get(i), clusters);
-			total+= t.y;
-			probs[i] = t.y;
+			if (clusters != null){
+				Tuple<Integer,Double> t = KMeans.findClosestCluster(points.get(i), clusters);
+				total+= t.y * points.get(i).getWeight();
+				probs[i] = t.y * points.get(i).getWeight();
+			} else {
+				total+= points.get(i).getWeight();
+				probs[i] = points.get(i).getWeight();
+			}
 		}
 		
 		// normalize

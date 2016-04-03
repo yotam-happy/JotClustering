@@ -1,6 +1,12 @@
 package edu.clustering.jot.util;
 
+import java.util.Random;
+
 public class RandomUtils {
+	static Random rnd = new Random(System.currentTimeMillis());
+	public static Random getRandom(){
+		return rnd;
+	}
 	public static int getItemByProb(double probs[], double rnd){
 		for(int i = 0; i < probs.length; i++){
 			if (rnd <= probs[i]){
