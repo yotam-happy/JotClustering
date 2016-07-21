@@ -65,7 +65,6 @@ public class TestMain {
 		nonStreaming.add(AlgorithmConstructor.getKMeansPlusPlus(500, 0.00000001));
 
 		
-		List<DenseEucledianPoint> norm25 = norm25();
 		List<Integer> norm25k = new ArrayList<>();
 		norm25k.add(10);
 		norm25k.add(25);
@@ -80,7 +79,6 @@ public class TestMain {
 		intrusionK.add(30);
 		intrusionK.add(50);
 
-		List<DenseEucledianPoint> tower = tower();
 		List<Integer> towerK = new ArrayList<>();
 		towerK.add(20);
 		towerK.add(40);

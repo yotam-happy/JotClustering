@@ -4,12 +4,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import edu.clustering.jot.interfaces.ClusterInitializer;
 import edu.clustering.jot.interfaces.ClusteringAlgorithm;
 import edu.clustering.jot.interfaces.Point;
-import edu.clustering.jot.util.Counting;
 import edu.clustering.jot.util.RandomUtils;
 import edu.clustering.jot.util.Tuple;
 
@@ -64,7 +62,7 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
         	clearClusters();
         	
         	//Assign points to the closer cluster
-        	assignCluster(points, clusters, true);
+        	double loss = assignCluster(points, clusters, true) / points.size();
             
             //Calculate new centroids.
         	int cid = 0;
@@ -100,6 +98,7 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
         	if(iteration > maxIterations || (clustersResurected == 0 && delta <= minDelta)) {
         		finish = true;
         	}
+        	System.out.println("Done iteration " + iteration + " (delta=" + delta + ", loss=" + loss + ")");
         }
         
     	// remove redundant centroids
@@ -138,25 +137,26 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
     public static <T extends Point> Tuple<Integer,Double> findClosestCluster(
     		T point, 
     		List<Cluster<T>> clusters){
-    	List<Tuple<Integer,Double>> l = clusters.parallelStream()
+    	Tuple<Integer,Double> t = clusters.parallelStream()
 			.map((cluster)->new Tuple<Integer,Double>(cluster.id,point.distance(cluster.getCentroid())))
-	    	.sorted((e1,e2)->Double.compare(e1.y, e2.y)).collect(Collectors.toList());
+	    	.min((e1,e2)->Double.compare(e1.y, e2.y)).orElse(null);
     	
-		return l.get(0);
+		return t;
+		
+		
     }
     
-    protected void assignCluster(List<T> points, List<Cluster<T>> c, boolean report) {
-    	Counting counter = report ? new Counting(10000, "Assigning clusters") : null;
-        points.stream()
+    protected double assignCluster(List<T> points, List<Cluster<T>> c, boolean report) {
+        double[] loss = new double[1];
+    	points.stream()
         .forEach((point)->{
     		Tuple<Integer,Double> t = findClosestCluster(point,c);
             if (t != null){
             	c.get(t.x).addPoint(point);
             }
-            if (report){
-            	counter.addOne();
-            }
+            loss[0] += t.y * t.y;
         });
+    	return loss[0];
     }
 
     public List<Cluster<T>> initializeClusters(int k, List<T> points) {

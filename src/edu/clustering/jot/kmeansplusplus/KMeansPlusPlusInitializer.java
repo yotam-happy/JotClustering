@@ -7,9 +7,7 @@ import java.util.Random;
 import edu.clustering.jot.interfaces.ClusterInitializer;
 import edu.clustering.jot.interfaces.Point;
 import edu.clustering.jot.kmeans.Cluster;
-import edu.clustering.jot.kmeans.KMeans;
 import edu.clustering.jot.util.RandomUtils;
-import edu.clustering.jot.util.Tuple;
 
 /**
  * Implementing the kmeans++ initialization procedure
@@ -37,6 +35,12 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 	@Override
 	public List<Cluster<T>> initializeClusters(int k, List<T> points) {
 		double[] probs = new double[points.size()];
+		T lastPoint = null;
+		double[] dist = new double[points.size()];
+		for(int i = 0; i < points.size(); i++){
+			dist[i] = Double.MAX_VALUE;
+			probs[i] = -1;
+		}
 
 		List<Cluster<T>> clusters = new ArrayList<Cluster<T>>();
     	Random rnd = RandomUtils.getRandom();
@@ -44,13 +48,14 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 		// select first centroids at random
     	for(int i = 0; i < t; i++){
 			Cluster<T> firstCluster = new Cluster<T>(0);
-			firstCluster.setCentroid(points.get(rnd.nextInt(points.size())));
+			lastPoint = points.get(rnd.nextInt(points.size()));
+			firstCluster.setCentroid(lastPoint);
 			clusters.add(firstCluster);
     	}
 		
     	//Initialize rest of clusters with kmeans++ probabilities
     	for (int i = 1; i < k; i++) {
-    		probs = setProbs(probs, clusters, points);
+    		probs = setProbs(probs, dist, clusters, points, lastPoint);
     		if (Double.isNaN(probs[0])){
     			// This means all points are the same, no need for more clusters
     			break;
@@ -67,27 +72,32 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 	}
 	
 	protected static <T extends Point> double[] setProbs(
-			double probs[], 
+			double probs[],
+			double dist[],
 			List<Cluster<T>> clusters, 
-			List<T> points){
+			List<T> points,
+			T lastPoint){
 		double total = 0;
 		
-		for(int i = 0; i < probs.length; i++){
-			if (clusters != null){
-				Tuple<Integer,Double> t = KMeans.findClosestCluster(points.get(i), clusters);
-				total+= t.y * points.get(i).getWeight();
-				probs[i] = t.y * points.get(i).getWeight();
-			} else {
-				total+= points.get(i).getWeight();
-				probs[i] = points.get(i).getWeight();
+		// update dist
+		for(int i = 0; i < dist.length; i++){
+			double d = points.get(i).distance(lastPoint);
+			if (d < dist[i]){
+				dist[i] = d;
 			}
 		}
+
+		for(int i = 0; i < probs.length; i++){
+			total+= dist[i] * dist[i] * points.get(i).getWeight();
+			probs[i] = dist[i] * dist[i] * points.get(i).getWeight();
+		}
 		
+		double ddd = 0;
 		// normalize
 		for(int i = 0; i < probs.length; i++){
 			probs[i] /= total;
+			ddd += probs[i];
 		}
-		
 		return probs;
 	}
 }
