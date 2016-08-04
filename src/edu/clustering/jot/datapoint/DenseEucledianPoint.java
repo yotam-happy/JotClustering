@@ -96,7 +96,7 @@ public class DenseEucledianPoint implements Point, Serializable{
 		return r;
 	}
 
-	public enum Metric {
+	public static enum Metric {
 		EuclideanDistance,
 		CosineDistnce
 	}

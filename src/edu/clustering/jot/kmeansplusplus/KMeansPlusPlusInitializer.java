@@ -34,6 +34,10 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 	
 	@Override
 	public List<Cluster<T>> initializeClusters(int k, List<T> points) {
+		return initializeClusters(k, points, null);
+	}
+	
+    public List<Cluster<T>> initializeClusters(int k, List<T> points, T firstCentroid){
 		double[] probs = new double[points.size()];
 		T lastPoint = null;
 		double[] dist = new double[points.size()];
@@ -41,12 +45,18 @@ public class KMeansPlusPlusInitializer<T extends Point> implements ClusterInitia
 			dist[i] = Double.MAX_VALUE;
 			probs[i] = -1;
 		}
-
+		
 		List<Cluster<T>> clusters = new ArrayList<Cluster<T>>();
-    	Random rnd = RandomUtils.getRandom();
+		if (firstCentroid != null){
+    		Cluster<T> cluster = new Cluster<T>(0);
+    		cluster.setCentroid(firstCentroid);
+    		clusters.add(cluster);
+			lastPoint = firstCentroid;
+		}
 
+    	Random rnd = RandomUtils.getRandom();
 		// select first centroids at random
-    	for(int i = 0; i < t; i++){
+    	for(int i = firstCentroid == null ? 0 : 1; i < t; i++){
 			Cluster<T> firstCluster = new Cluster<T>(0);
 			lastPoint = points.get(rnd.nextInt(points.size()));
 			firstCluster.setCentroid(lastPoint);

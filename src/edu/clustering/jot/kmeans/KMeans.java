@@ -1,9 +1,12 @@
 package edu.clustering.jot.kmeans;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
+import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import edu.clustering.jot.interfaces.ClusterInitializer;
 import edu.clustering.jot.interfaces.ClusteringAlgorithm;
@@ -20,6 +23,8 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
 
     protected int maxIterations;
     protected double minDelta;
+    
+    protected BiFunction<T, Cluster<T>, Boolean> constraint;
 
 	/**
      * @param maxIterations		maimum iterations to run
@@ -36,6 +41,14 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
     }
     public void setClusterInitializerForDeadClusters(ClusterInitializer<T> initializer) {
     	this.initializerForDead = initializer;
+    }
+ 
+    /**
+     * constrain is a lambda that takes a point and a cluster and returns true
+     * iff the point can be added to the cluster (doesn't violate the constraint)
+     */
+    public void setContraint(BiFunction<T, Cluster<T>, Boolean> constraint) {
+    	this.constraint = constraint;
     }
     
 	public void reset(){
@@ -62,7 +75,7 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
         	clearClusters();
         	
         	//Assign points to the closer cluster
-        	double loss = assignCluster(points, clusters, true) / points.size();
+        	double loss = assignCluster(points, clusters) / points.size();
             
             //Calculate new centroids.
         	int cid = 0;
@@ -81,7 +94,6 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
                 	it.remove();
                 }
             }
-        	
         	// if some clusters died, we split the largest clusters
         	clustersResurected = 0;
         	while(clusters.size() < minClustersToMaintain){
@@ -90,6 +102,10 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
 	        			break;
 	        		}
 	        		clustersResurected ++;
+        	}
+        	if (clustersResurected > 0){
+        		// splitting clusters can mess with id's so fix them
+        		fixClusterIds(clusters);
         	}
         	
         	iteration++;
@@ -110,19 +126,26 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
         }
         
     }
+
+    protected void fixClusterIds(Collection<Cluster<T>> clusters){
+    	// fix cluster ids
+    	int i = 0;
+    	for(Cluster<T> cluster : clusters){
+    		cluster.id = i;
+    		i++;
+    	}
+    }
     
     protected boolean splitLargestCluster(){
-    	Cluster<T> c;
+    	Cluster<T> c = clusters.stream()
+		    	.sorted((c1,c2)->-Integer.compare(c1.points.size(),c2.points.size()))
+		    	.findFirst().orElse(null);
     	
-    	c = clusters.stream()
-    	.sorted((c1,c2)->-Integer.compare(c1.points.size(),c2.points.size()))
-    	.findFirst().orElse(null);
-    	
-    	List<Cluster<T>> n = initializerForDead.initializeClusters(2, c.points);
+    	List<Cluster<T>> n = initializerForDead.initializeClusters(2, c.points, c.centroid);
     	if (n.size() < 2){
     		return false;
     	}
-    	assignCluster(c.points, n, false);
+    	assignCluster(c.points, n);
     	clusters.remove(c);
     	clusters.addAll(n);
     	return true;
@@ -134,38 +157,73 @@ public class KMeans<T extends Point> implements ClusterInitializer<T>, Clusterin
     	}
     }
     
-    public static <T extends Point> Tuple<Integer,Double> findClosestCluster(
+    public static <T extends Point> Tuple<Cluster<T>,Double> findClosestCluster(
     		T point, 
     		List<Cluster<T>> clusters){
-    	Tuple<Integer,Double> t = clusters.parallelStream()
-			.map((cluster)->new Tuple<Integer,Double>(cluster.id,point.distance(cluster.getCentroid())))
-	    	.min((e1,e2)->Double.compare(e1.y, e2.y)).orElse(null);
-    	
-		return t;
-		
-		
+    	return findClosestCluster(point, clusters, null);
     }
     
-    protected double assignCluster(List<T> points, List<Cluster<T>> c, boolean report) {
+    public static <T extends Point> Tuple<Cluster<T>,Double> findClosestCluster(
+    		T point, 
+    		List<Cluster<T>> clusters,
+    		BiFunction<T, Cluster<T>, Boolean> constraint){
+    	// get a sorted list
+    	List<Tuple<Cluster<T>,Double>> sorted = 
+    			clusters.parallelStream()
+    			.map((cluster)->new Tuple<Cluster<T>,Double>(cluster,point.distance(cluster.getCentroid())))
+    			.sorted((e1,e2)->Double.compare(e1.y, e2.y))
+    			.collect(Collectors.toList());
+
+    	if(constraint == null){
+    		return sorted.get(0);
+    	} else {
+    		for(Tuple<Cluster<T>,Double> t : sorted){
+    			if(constraint.apply(point, t.x)){
+    				return t;
+    			}
+    		}
+    		return null;
+    	}		
+    }
+    
+    protected double assignCluster(List<T> points, List<Cluster<T>> c) {
         double[] loss = new double[1];
     	points.stream()
         .forEach((point)->{
-    		Tuple<Integer,Double> t = findClosestCluster(point,c);
+    		Tuple<Cluster<T>,Double> t = findClosestCluster(point,c,constraint);
             if (t != null){
-            	c.get(t.x).addPoint(point);
+            	t.x.addPoint(point);
             }
             loss[0] += t.y * t.y;
         });
     	return loss[0];
     }
-
+    protected double calcLoss(List<T> points, List<Cluster<T>> c){
+        double[] loss = new double[1];
+    	points.stream()
+        .forEach((point)->{
+    		Tuple<Cluster<T>,Double> t = findClosestCluster(point,c,constraint);
+            loss[0] += t.y * t.y;
+        });
+    	return loss[0];
+    }
+    
     public List<Cluster<T>> initializeClusters(int k, List<T> points) {
-    	
+    	return initializeClusters(k, points, null);
+    }
+
+    public List<Cluster<T>> initializeClusters(int k, List<T> points, T firstCentroid){
 		List<Cluster<T>> clusters = new ArrayList<Cluster<T>>();
     	Random rnd = RandomUtils.getRandom();
     	
+    	if (firstCentroid != null){
+    		Cluster<T> cluster = new Cluster<T>(0);
+    		cluster.setCentroid(firstCentroid);
+    		clusters.add(cluster);
+    	}
+    	
     	//Initialize clusters with random centroids
-    	for (int i = 0; i < k; i++) {
+    	for (int i = (firstCentroid == null ? 0 : 1); i < k; i++) {
     		Cluster<T> cluster = new Cluster<T>(i);
     		T centroid = points.get(rnd.nextInt(points.size()));
     		cluster.setCentroid(centroid);

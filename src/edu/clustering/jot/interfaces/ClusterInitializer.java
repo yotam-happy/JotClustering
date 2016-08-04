@@ -6,4 +6,5 @@ import edu.clustering.jot.kmeans.Cluster;
 
 public interface ClusterInitializer<T extends Point> {
     List<Cluster<T>> initializeClusters(int k, List<T> points);
+    List<Cluster<T>> initializeClusters(int k, List<T> points, T firstCentroid);
 }
